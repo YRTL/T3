@@ -9,9 +9,13 @@ void mainScreen(){
   // wipe previous info from screen
   Tft.fillRectangle(0,21,240,299,BLACK);
   
-  // draw Scan button
+  // draw Connect button
   Tft.drawRectangle(0,21,230,25,WHITE);
-  Tft.drawString("Scan ->", 5, 23, 3, BLUE);
+  Tft.drawString("Connect->", 5, 23, 3, BLUE);
+  
+  // draw Scan button
+  Tft.drawRectangle(0,48, 230,25,WHITE);
+  Tft.drawString("Scan->", 5, 50, 3, BLUE);
   
   // draw [*] options/settings button in lower right corner
   // FIXME - this should be a "real" button

@@ -1,9 +1,42 @@
 unsigned long scanMillis;
 
 void scanScreen(){
-  scanButtonCount = 0;
-  if(millis() - scanMillis < 5000)
+  // run the scan on first loop
+  if(scanCount == 0){
+    //dataPacket[0] = 'Q';
+    //dataPacket[1] = '?';
+    //dataPacket[2] = (char)0;
+    dataPacket[0] = (char)'q';
+    dataPacket[1] = (char)0;
+    if(!manager.sendtoWait(dataPacket, sizeof(dataPacket), RH_BROADCAST_ADDRESS)){ //RH_BROADCAST_ADDRESS);
+      Tft.drawString("0", 20,300,2,RED);
+    }else{
+      Tft.drawString("1", 20,300,2,GREEN);
+    }
+  }
+  
+  if(manager.available()){
+    Tft.drawString("1", 30,300,2,GREEN);
+    uint8_t len = sizeof(buf);
+    uint8_t from;
+    
+    // we'll take anything that answers while "scan" screen is running
+    if(manager.recvfromAck(buf, &len, &from)){
+      //Tft.drawString((char*)buf, 10,300,2,GREEN);
+      known_rx[from] = (char*)buf;
+    }
+  }
+  
+  if(millis() - scanMillis < 3000)
     return;
+  scanMillis = millis();
+
+  if(scanCount > 5){
+    scanCount = 0;
+    action = 1;
+    return;
+  }
+  
   // title
   Tft.fillRectangle(0,0,240,20, BLUE);
   Tft.drawString("Scan", 5,2,2,GREEN);
@@ -15,42 +48,15 @@ void scanScreen(){
   // wipe previous info from screen
   Tft.fillRectangle(0,21,240,299,BLACK);
   
-  int newY = 21;
-  for(int i=0;i<MAX_KNOWN_RX;i++){
-    if(i != MY_ADDRESS && known_rx[i].length()){
-      char theName[10];
-      known_rx[i].toCharArray(theName, 10);
-      Tft.drawRectangle(0,newY,230,25,WHITE);
-      Tft.drawString(theName, 5, newY+2, 3, GREEN);
-      scanButtons[scanButtonCount][0] = newY;
-      newY += 28;
-      scanButtons[scanButtonCount][1] = newY;
-      scanButtons[scanButtonCount][2] = i;
-      scanButtonCount++;
-    }
-  }
-  if(scanButtonCount == 0){
-    Tft.drawString("Nothing", 5,21,3, RED);
-    Tft.drawString("Found", 5, 46, 3, RED);
-  }
-  scanButtonCount = 1;
-  newY = 70;
-  Tft.drawRectangle(0,newY,230,25,WHITE);
-  Tft.drawString("Refresh", 5, newY+2, 3, GREEN);
-  scanButtons[scanButtonCount][0] = newY;
-  scanButtons[scanButtonCount][1] = newY+28;
-  scanButtons[scanButtonCount][2] = 255;
-
+  Tft.drawString("Scanning", 5, 23, 3, GREEN);
+  char scanCountString[3];
+  String(scanCount).toCharArray(scanCountString, 3);
+  Tft.drawString(scanCountString, 2,300,2,GREEN);
   
-
+  Tft.drawRectangle(0,48,230,25,WHITE);
+  Tft.drawString("Cancel", 5, 50, 3, GREEN);
   
-  action = 2;
-  donePainting = 1;
+  scanCount++;
+
 }
 
-void doConnect(int inAddr){
-  char addrString[3];
-  String(inAddr).toCharArray(addrString, 3);
-  Tft.fillRectangle(0,300,50,20,BLACK);
-  Tft.drawString(addrString, 2,300,2,GREEN); 
-}

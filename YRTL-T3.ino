@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2015 Del Rudolph <del@rudforce.com>
-  
+
   See http://rud.mit-license.org or included file LICENSE
 */
 
@@ -17,6 +17,7 @@
 String known_rx[MAX_KNOWN_RX];
 
 #define MY_ADDRESS 3
+#define WALLE_ADDRESS 4
 
 #define lStickX  A8
 #define lStickY  A9
@@ -37,9 +38,16 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 int action = 0;
 int donePainting = 0;
 
-int scanButtonCount;
-int scanButtons[10][3];
+int connButtonCount;
+int connButtons[10][3];
 
+int scanCount = 0;
+
+int cur_rx;
+
+uint8_t dataPacket[RH_NRF24_MAX_MESSAGE_LEN];
+//uint8_t dataPacket[] = "Message! :-)";
+uint8_t buf[RH_NRF24_MAX_MESSAGE_LEN];
 
 void setup() {
   Tft.init();
@@ -48,6 +56,19 @@ void setup() {
     Tft.drawString("Manager init failed", 5,22,1, RED);
     donePainting = 1;
   }
+  
+  if(scanCount == 0){
+    //dataPacket[0] = 'Q';
+    //dataPacket[1] = '?';
+    //dataPacket[2] = (char)0;
+    
+//    if(!manager.sendtoWait(dataPacket, sizeof(dataPacket), WALLE_ADDRESS)){ //RH_BROADCAST_ADDRESS
+//      Tft.drawString("0", 20,300,2,RED);
+//    }else{
+//      Tft.drawString("1", 20,300,2,GREEN);
+//    }
+  }
+  
   Serial.begin(9600);
   known_rx[MY_ADDRESS] = "YRTL-T3";
 //  known_rx[1] = "YRTLBot";
@@ -59,48 +80,61 @@ void loop() {
   TSPoint p = ts.getPoint();
   p.x = map(p.x, 120,880,240,0);
   p.y = map(p.y, 115,930,320,0);
-  
+
   if(p.z > ts.pressureThreshhold){
     delay(20);    // do I need to debounce a touchscreen?
 //    Serial.print("p.x: ");
 //    Serial.print(p.x);
 //    Serial.print(" p.y: ");
 //    Serial.println(p.y);
-    
+
     // if * button is pressed on main screen
     if(p.x > 220 && p.y > 300 && action == 0){
       // Diags screen
       action = 9;
       donePainting = 0;
     }
-    
-    // if Scan button is pressed on main screen
+
+    // if Connect button is pressed on main screen
     if(p.x > 0 && (p.y >= 21 && p.y <= 46) && action == 0){
-      // Scanning screen
+      // Connect screen
       action = 1;
       donePainting = 0;
     }
-    
+
+    if(p.x > 0 && (p.y >= 48 && p.y <= 73) && action == 0){
+      // Scan screen
+      action = 3;
+      donePainting = 0;
+    }
+
     // use scanButtons array to build connect buttons
-    if(action == 2 && scanButtonCount > 0){
+    if(action == 2 && connButtonCount > 0){
       int lastY;
-      for(int i=0; i<=scanButtonCount; i++){
-        if(p.x > 0 && (p.y >= scanButtons[i][0] && p.y <= scanButtons[i][1])){
-          if(scanButtons[i][2] == 255){
-            action = 1;
+      for(int i=0; i<=connButtonCount; i++){
+        if(p.x > 0 && (p.y >= connButtons[i][0] && p.y <= connButtons[i][1])){
+          if(connButtons[i][2] == 255){
+            action = 3;
             donePainting = 0;
           }else{
-            doConnect(scanButtons[i][2]);
+            doConnect(connButtons[i][2]);
           }
         }
-        lastY = scanButtons[i][1];
+        lastY = connButtons[i][1];
       }
-      
-      // handle Refresh button
+
+      // handle Scan button
       if(p.x > 0 && (p.y >= lastY && p.y <= lastY+25)){
-        action = 1;
+        action = 3;
         donePainting = 0;
       }
+    }
+    
+    // Cancel button on Scan screen
+    if(action == 3 && scanCount && p.x > 0 && (p.y >= 48 && p.y <= 73)){
+      action = 0;
+      donePainting = 0;
+      scanCount = 0;
     }
     
     // if X (close) button is pressed on any screen
@@ -110,11 +144,13 @@ void loop() {
       donePainting = 0;
     }
   }
-  
+
   if(donePainting == 0){
     if(action == 0)
       mainScreen();
     if(action == 1)
+      connectScreen();
+    if(action == 3)
       scanScreen();
     if(action == 9)
       sticks2screen();
@@ -129,3 +165,5 @@ void loop() {
 //  Serial.print(" RY: ");
 //  Serial.println(analogRead(A14));
 }
+
+
