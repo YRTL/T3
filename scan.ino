@@ -1,13 +1,10 @@
 unsigned long scanMillis;
 
 void scanScreen(){
-  // run the scan on first loop
+  // send the query packet on first loop
   if(scanCount == 0){
-    //dataPacket[0] = 'Q';
-    //dataPacket[1] = '?';
-    //dataPacket[2] = (char)0;
     dataPacket[0] = (char)'q';
-    dataPacket[1] = (char)0;
+    dataPacket[1] = (char)0;  // possibly unneeded
     if(!manager.sendtoWait(dataPacket, sizeof(dataPacket), RH_BROADCAST_ADDRESS)){ //RH_BROADCAST_ADDRESS);
       Tft.drawString("0", 20,300,2,RED);
     }else{
@@ -15,6 +12,7 @@ void scanScreen(){
     }
   }
   
+  // if we hear something back
   if(manager.available()){
     Tft.drawString("1", 30,300,2,GREEN);
     uint8_t len = sizeof(buf);
@@ -22,15 +20,16 @@ void scanScreen(){
     
     // we'll take anything that answers while "scan" screen is running
     if(manager.recvfromAck(buf, &len, &from)){
-      //Tft.drawString((char*)buf, 10,300,2,GREEN);
       known_rx[from] = (char*)buf;
     }
   }
   
+  // only refresh every 3 seconds
   if(millis() - scanMillis < 3000)
     return;
   scanMillis = millis();
 
+  // only refresh 5 times
   if(scanCount > 5){
     scanCount = 0;
     action = 1;
